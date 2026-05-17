@@ -139,7 +139,7 @@ impl ProviderActivation {
     pub fn openai_compatible(model: Option<String>) -> Self {
         let activation = Self::locked(
             RuntimeProviderId::OpenAiCompatible,
-            ActiveProvider::OpenRouter,
+            ActiveProvider::OpenAiCompatible,
         );
         if let Some(model) = model.filter(|value| !value.trim().is_empty()) {
             activation.with_model_hint("JCODE_OPENROUTER_MODEL", model)

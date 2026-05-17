@@ -2,7 +2,6 @@ use super::{Tool, ToolContext, ToolOutput};
 use crate::bus::{Bus, BusEvent, FileOp, FileTouch};
 use anyhow::Result;
 use async_trait::async_trait;
-use serde::Deserialize;
 use serde_json::{Value, json};
 use similar::{ChangeTag, TextDiff};
 use std::path::Path;
@@ -16,14 +15,6 @@ impl WriteTool {
     pub fn new() -> Self {
         Self
     }
-}
-
-#[derive(Deserialize)]
-struct WriteInput {
-    #[serde(default)]
-    intent: Option<String>,
-    file_path: String,
-    content: String,
 }
 
 #[async_trait]
@@ -55,9 +46,21 @@ impl Tool for WriteTool {
     }
 
     async fn execute(&self, input: Value, ctx: ToolContext) -> Result<ToolOutput> {
-        let params: WriteInput = serde_json::from_value(input)?;
+        let file_path = input
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing required parameter 'file_path'"))?;
+        let content = input
+            .get("content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing required parameter 'content'"))?;
+        let intent = input
+            .get("intent")
+            .and_then(|v| v.as_str())
+            .filter(|v| !v.trim().is_empty())
+            .map(ToString::to_string);
 
-        let path = ctx.resolve_path(Path::new(&params.file_path));
+        let path = ctx.resolve_path(Path::new(file_path));
 
         // Create parent directories if needed
         if let Some(parent) = path.parent()
@@ -75,14 +78,13 @@ impl Tool for WriteTool {
         };
 
         // Write the file
-        tokio::fs::write(&path, &params.content).await?;
+        tokio::fs::write(&path, content).await?;
 
-        let _new_len = params.content.len();
-        let line_count = params.content.lines().count();
+        let line_count = content.lines().count();
         let diff = if let Some(old) = old_content.as_deref() {
-            generate_diff_summary(old, &params.content)
+            generate_diff_summary(old, content)
         } else {
-            generate_diff_summary("", &params.content)
+            generate_diff_summary("", content)
         };
         let detail = build_file_touch_preview(&diff);
 
@@ -91,10 +93,7 @@ impl Tool for WriteTool {
             session_id: ctx.session_id.clone(),
             path: path.to_path_buf(),
             op: FileOp::Write,
-            intent: params
-                .intent
-                .clone()
-                .filter(|value| !value.trim().is_empty()),
+            intent: intent.clone(),
             summary: Some(if existed {
                 format!("overwrote file ({} lines)", line_count)
             } else {
@@ -106,20 +105,20 @@ impl Tool for WriteTool {
         if existed {
             Ok(ToolOutput::new(format!(
                 "Updated {} ({} lines){}\n{}",
-                params.file_path,
+                file_path,
                 line_count,
                 if diff.is_empty() { "" } else { ":" },
                 diff
             ))
-            .with_title(params.file_path.clone()))
+            .with_title(file_path.to_string()))
         } else {
             // For new files, show all lines as additions
-            let diff = generate_diff_summary("", &params.content);
+            let diff = generate_diff_summary("", content);
             Ok(ToolOutput::new(format!(
                 "Created {} ({} lines):\n{}",
-                params.file_path, line_count, diff
+                file_path, line_count, diff
             ))
-            .with_title(params.file_path.clone()))
+            .with_title(file_path.to_string()))
         }
     }
 }

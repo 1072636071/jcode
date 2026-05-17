@@ -11,6 +11,7 @@ pub enum ActiveProvider {
     Cursor,
     Bedrock,
     OpenRouter,
+    OpenAiCompatible,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -37,6 +38,7 @@ impl ProviderAvailability {
             ActiveProvider::Cursor => self.cursor,
             ActiveProvider::Bedrock => self.bedrock,
             ActiveProvider::OpenRouter => self.openrouter,
+            ActiveProvider::OpenAiCompatible => true, // 由 profile 自身管理
         }
     }
 }
@@ -65,6 +67,10 @@ pub fn auto_default_provider(availability: ProviderAvailability) -> ActiveProvid
     }
 }
 
+pub fn is_openai_compatible_provider(provider: ActiveProvider) -> bool {
+    matches!(provider, ActiveProvider::OpenAiCompatible)
+}
+
 pub fn parse_provider_hint(value: &str) -> Option<ActiveProvider> {
     match value.trim().to_ascii_lowercase().as_str() {
         "claude" | "anthropic" => Some(ActiveProvider::Claude),
@@ -75,6 +81,7 @@ pub fn parse_provider_hint(value: &str) -> Option<ActiveProvider> {
         "cursor" => Some(ActiveProvider::Cursor),
         "bedrock" | "aws-bedrock" | "aws_bedrock" => Some(ActiveProvider::Bedrock),
         "openrouter" => Some(ActiveProvider::OpenRouter),
+        "openai-compatible" | "openai_compatible" => Some(ActiveProvider::OpenAiCompatible),
         _ => None,
     }
 }
@@ -89,6 +96,7 @@ pub fn provider_label(provider: ActiveProvider) -> &'static str {
         ActiveProvider::Cursor => "Cursor",
         ActiveProvider::Bedrock => "AWS Bedrock",
         ActiveProvider::OpenRouter => "OpenRouter",
+        ActiveProvider::OpenAiCompatible => "OpenAI-compatible",
     }
 }
 
@@ -102,6 +110,7 @@ pub fn provider_key(provider: ActiveProvider) -> &'static str {
         ActiveProvider::Cursor => "cursor",
         ActiveProvider::Bedrock => "bedrock",
         ActiveProvider::OpenRouter => "openrouter",
+        ActiveProvider::OpenAiCompatible => "openai-compatible",
     }
 }
 
@@ -115,6 +124,7 @@ pub fn provider_from_model_key(key: &str) -> Option<ActiveProvider> {
         "cursor" => Some(ActiveProvider::Cursor),
         "bedrock" => Some(ActiveProvider::Bedrock),
         "openrouter" => Some(ActiveProvider::OpenRouter),
+        "openai-compatible" => Some(ActiveProvider::OpenAiCompatible),
         _ => None,
     }
 }
@@ -138,6 +148,8 @@ pub fn explicit_model_provider_prefix(model: &str) -> Option<(ActiveProvider, &'
         Some((ActiveProvider::Bedrock, "bedrock:", rest))
     } else if let Some(rest) = model.strip_prefix("openrouter:") {
         Some((ActiveProvider::OpenRouter, "openrouter:", rest))
+    } else if let Some(rest) = model.strip_prefix("openai-compatible:") {
+        Some((ActiveProvider::OpenAiCompatible, "openai-compatible:", rest))
     } else {
         None
     }
@@ -274,6 +286,16 @@ pub fn fallback_sequence(active: ActiveProvider) -> Vec<ActiveProvider> {
             ActiveProvider::OpenRouter,
         ],
         ActiveProvider::OpenRouter => vec![
+            ActiveProvider::OpenRouter,
+            ActiveProvider::Claude,
+            ActiveProvider::OpenAI,
+            ActiveProvider::Copilot,
+            ActiveProvider::Antigravity,
+            ActiveProvider::Gemini,
+            ActiveProvider::Cursor,
+        ],
+        ActiveProvider::OpenAiCompatible => vec![
+            ActiveProvider::OpenAiCompatible,
             ActiveProvider::OpenRouter,
             ActiveProvider::Claude,
             ActiveProvider::OpenAI,

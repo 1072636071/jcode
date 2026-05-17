@@ -452,14 +452,14 @@ impl MultiProvider {
                 self.set_active_provider(ActiveProvider::Bedrock);
                 Ok(())
             }
-            ActiveProvider::OpenRouter => {
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => {
                 let Some(openrouter) = self.openrouter_provider() else {
                     anyhow::bail!(
                         "OpenRouter/OpenAI-compatible credentials not available. Set the configured API key or run `jcode login --provider openrouter` first."
                     );
                 };
                 openrouter.set_model(model)?;
-                self.set_active_provider(ActiveProvider::OpenRouter);
+                self.set_active_provider(provider);
                 Ok(())
             }
         }
@@ -771,7 +771,13 @@ impl Provider for MultiProvider {
             ActiveProvider::Gemini => "Gemini",
             ActiveProvider::Cursor => "Cursor",
             ActiveProvider::Bedrock => "Bedrock",
-            ActiveProvider::OpenRouter => "OpenRouter",
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => {
+                if matches!(self.active_provider(), ActiveProvider::OpenAiCompatible) {
+                    "OpenAI-compatible"
+                } else {
+                    "OpenRouter"
+                }
+            }
         }
     }
 
@@ -811,7 +817,7 @@ impl Provider for MultiProvider {
                 .bedrock_provider()
                 .map(|o| o.model())
                 .unwrap_or_else(|| "anthropic.claude-3-5-sonnet-20241022-v2:0".to_string()),
-            ActiveProvider::OpenRouter => self
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => self
                 .openrouter_provider()
                 .map(|o| o.model())
                 .unwrap_or_else(|| "anthropic/claude-sonnet-4".to_string()),
@@ -852,7 +858,7 @@ impl Provider for MultiProvider {
                 .bedrock_provider()
                 .map(|provider| provider.supports_image_input())
                 .unwrap_or(false),
-            ActiveProvider::OpenRouter => self
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => self
                 .openrouter_provider()
                 .map(|provider| provider.supports_image_input())
                 .unwrap_or(false),
@@ -965,7 +971,7 @@ impl Provider for MultiProvider {
                 .bedrock_provider()
                 .map(|bedrock| bedrock.available_models_for_switching())
                 .unwrap_or_default(),
-            ActiveProvider::OpenRouter => self
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => self
                 .openrouter_provider()
                 .map(|openrouter| openrouter.available_models_for_switching())
                 .unwrap_or_default(),
@@ -1477,7 +1483,7 @@ impl Provider for MultiProvider {
                 .map(|o| o.handles_tools_internally())
                 .unwrap_or(false),
             ActiveProvider::Bedrock => false, // jcode executes Bedrock tool calls
-            ActiveProvider::OpenRouter => false, // jcode executes tools
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => false, // jcode executes tools
         }
     }
 
@@ -1490,7 +1496,7 @@ impl Provider for MultiProvider {
             ActiveProvider::Gemini => None,
             ActiveProvider::Cursor => None,
             ActiveProvider::Bedrock => None,
-            ActiveProvider::OpenRouter => self
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => self
                 .openrouter_provider()
                 .and_then(|o| o.reasoning_effort()),
         }
@@ -1502,7 +1508,7 @@ impl Provider for MultiProvider {
                 .openai_provider()
                 .ok_or_else(|| anyhow::anyhow!("OpenAI provider not available"))?
                 .set_reasoning_effort(effort),
-            ActiveProvider::OpenRouter => self
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => self
                 .openrouter_provider()
                 .ok_or_else(|| anyhow::anyhow!("OpenAI-compatible provider not available"))?
                 .set_reasoning_effort(effort),
@@ -1643,7 +1649,7 @@ impl Provider for MultiProvider {
                 .bedrock_provider()
                 .map(|o| o.uses_jcode_compaction())
                 .unwrap_or(false),
-            ActiveProvider::OpenRouter => self
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => self
                 .openrouter_provider()
                 .map(|o| o.supports_compaction())
                 .unwrap_or(false),
@@ -1682,7 +1688,7 @@ impl Provider for MultiProvider {
                 .map(|o| o.uses_jcode_compaction())
                 .unwrap_or(false),
             ActiveProvider::Bedrock => false,
-            ActiveProvider::OpenRouter => self
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => self
                 .openrouter_provider()
                 .map(|o| o.uses_jcode_compaction())
                 .unwrap_or(false),
@@ -1778,7 +1784,7 @@ impl Provider for MultiProvider {
             ActiveProvider::Bedrock => Err(anyhow::anyhow!(
                 "AWS Bedrock does not support native compaction"
             )),
-            ActiveProvider::OpenRouter => {
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => {
                 let provider = self.openrouter_provider();
                 if let Some(openrouter) = provider {
                     openrouter
@@ -1853,7 +1859,7 @@ impl Provider for MultiProvider {
                 .bedrock_provider()
                 .map(|o| o.context_window())
                 .unwrap_or(DEFAULT_CONTEXT_LIMIT),
-            ActiveProvider::OpenRouter => self
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => self
                 .openrouter_provider()
                 .map(|o| o.context_window())
                 .unwrap_or(DEFAULT_CONTEXT_LIMIT),
@@ -1973,7 +1979,7 @@ impl Provider for MultiProvider {
             ActiveProvider::Gemini => None,
             ActiveProvider::Cursor => None,
             ActiveProvider::Bedrock => None,
-            ActiveProvider::OpenRouter => None,
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => None,
         }
     }
 

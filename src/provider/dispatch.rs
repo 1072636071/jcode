@@ -161,7 +161,7 @@ impl MultiProvider {
                     ))
                 }
             }
-            ActiveProvider::OpenRouter => {
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => {
                 let openrouter = self
                     .openrouter
                     .read()
@@ -336,7 +336,7 @@ impl MultiProvider {
                     ))
                 }
             }
-            ActiveProvider::OpenRouter => {
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => {
                 let openrouter = self
                     .openrouter
                     .read()

@@ -609,6 +609,10 @@ pub struct OpenRouterProvider {
     supports_model_catalog: bool,
     profile_id: Option<String>,
     max_tokens: Option<u32>,
+    /// Sampling temperature (0.0-2.0). None = provider default.
+    temperature: Option<f32>,
+    /// Repetition penalty (1.0-2.0). None = provider default.
+    repetition_penalty: Option<f32>,
     static_models: Vec<String>,
     static_context_limits: HashMap<String, usize>,
     send_openrouter_headers: bool,
@@ -763,6 +767,14 @@ impl OpenRouterProvider {
                     .map(|limit| (id.to_ascii_lowercase(), limit))
             })
             .collect::<HashMap<_, _>>();
+        // Clamp optional sampling params to valid ranges
+        let temperature = profile
+            .temperature
+            .filter(|&v| (0.0..=2.0).contains(&v));
+        let repetition_penalty = profile
+            .repetition_penalty
+            .filter(|&v| v >= 1.0 && v <= 2.0);
+
         Ok(Self {
             client: crate::provider::shared_http_client(),
             model: Arc::new(RwLock::new(model)),
@@ -781,6 +793,8 @@ impl OpenRouterProvider {
                 ),
             profile_id: Some(profile_name.to_string()),
             max_tokens: Self::configured_max_tokens(Some(profile_name)),
+            temperature,
+            repetition_penalty,
             static_models,
             static_context_limits,
             send_openrouter_headers: false,
@@ -884,6 +898,30 @@ impl OpenRouterProvider {
         };
         let max_tokens = Self::configured_max_tokens(profile_id.as_deref());
 
+        // Read temperature/repetition_penalty from NamedProviderConfig or env
+        let get_profile_config = |profile_id: Option<&str>| -> Option<&crate::config::NamedProviderConfig> {
+            profile_id
+                .and_then(|id| crate::config::config().providers.get(id))
+        };
+        let temperature = get_profile_config(profile_id.as_deref())
+            .and_then(|p| p.temperature)
+            .filter(|&v| (0.0..=2.0).contains(&v))
+            .or_else(|| {
+                std::env::var("JCODE_OPENROUTER_TEMPERATURE")
+                    .ok()
+                    .and_then(|s| s.trim().parse::<f32>().ok())
+                    .filter(|&v| (0.0..=2.0).contains(&v))
+            });
+        let repetition_penalty = get_profile_config(profile_id.as_deref())
+            .and_then(|p| p.repetition_penalty)
+            .filter(|&v| v >= 1.0 && v <= 2.0)
+            .or_else(|| {
+                std::env::var("JCODE_OPENROUTER_REPETITION_PENALTY")
+                    .ok()
+                    .and_then(|s| s.trim().parse::<f32>().ok())
+                    .filter(|&v| v >= 1.0 && v <= 2.0)
+            });
+
         Ok(Self {
             client: crate::provider::shared_http_client(),
             model: Arc::new(RwLock::new(model)),
@@ -894,6 +932,8 @@ impl OpenRouterProvider {
             supports_model_catalog,
             profile_id,
             max_tokens,
+            temperature,
+            repetition_penalty,
             static_models,
             static_context_limits,
             send_openrouter_headers,
@@ -1115,6 +1155,8 @@ impl OpenRouterProvider {
                 supports_model_catalog: true,
                 profile_id: None,
                 max_tokens: None,
+                temperature: None,
+                repetition_penalty: None,
                 static_models: Vec::new(),
                 static_context_limits: HashMap::new(),
                 send_openrouter_headers: true,

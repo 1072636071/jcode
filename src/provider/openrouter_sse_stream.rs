@@ -36,13 +36,20 @@ pub(super) async fn run_stream_with_retries(
             ));
         }
 
+        let transport_type = if api_base.starts_with("https://") {
+            "HTTPS"
+        } else {
+            "HTTP"
+        };
         crate::logging::info(&format!(
-            "API stream attempt {}/{} over HTTPS transport (model: {}, endpoint: {}, auth: {})",
+            "API stream attempt {}/{} over {} transport (model: {}, endpoint: {}, auth: {}, api_base starts_with https: {})",
             attempt + 1,
             MAX_RETRIES,
+            transport_type,
             model,
             api_base,
-            auth.label()
+            auth.label(),
+            api_base.starts_with("https://")
         ));
 
         match stream_response(

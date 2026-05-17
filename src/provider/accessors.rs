@@ -77,7 +77,9 @@ impl MultiProvider {
             ActiveProvider::Gemini => self.gemini_provider().is_some(),
             ActiveProvider::Cursor => self.cursor_provider().is_some(),
             ActiveProvider::Bedrock => self.bedrock_provider().is_some(),
-            ActiveProvider::OpenRouter => self.openrouter_provider().is_some(),
+            ActiveProvider::OpenRouter | ActiveProvider::OpenAiCompatible => {
+                self.openrouter_provider().is_some()
+            }
         }
     }
 

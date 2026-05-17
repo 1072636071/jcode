@@ -295,7 +295,7 @@ pub struct NamedProviderModelConfig {
     pub input: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct NamedProviderConfig {
     #[serde(rename = "type")]
@@ -317,6 +317,12 @@ pub struct NamedProviderConfig {
     pub allow_provider_pinning: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub models: Vec<NamedProviderModelConfig>,
+    /// Temperature for sampling (0.0-2.0). None = provider default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f32>,
+    /// Repetition penalty (1.0-2.0). None = provider default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repetition_penalty: Option<f32>,
 }
 
 impl Default for NamedProviderConfig {
@@ -336,6 +342,8 @@ impl Default for NamedProviderConfig {
             model_catalog: false,
             allow_provider_pinning: false,
             models: Vec::new(),
+            temperature: None,
+            repetition_penalty: None,
         }
     }
 }

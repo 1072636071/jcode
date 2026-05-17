@@ -521,6 +521,14 @@ impl Provider for OpenRouterProvider {
             request["max_tokens"] = serde_json::json!(max_tokens);
         }
 
+        if let Some(temperature) = self.temperature {
+            request["temperature"] = serde_json::json!(temperature);
+        }
+
+        if let Some(repetition_penalty) = self.repetition_penalty {
+            request["repetition_penalty"] = serde_json::json!(repetition_penalty);
+        }
+
         if let Some(effort) = reasoning_effort.as_deref()
             && Self::profile_supports_reasoning_effort(self.profile_id.as_deref())
             && effort != "none"
@@ -620,8 +628,13 @@ impl Provider for OpenRouterProvider {
             ],
         );
 
-        // OpenRouter uses HTTPS/SSE transport only
-        crate::logging::info("OpenRouter transport: HTTPS (SSE)");
+        // Log transport type based on API base URL scheme
+        let transport_type = if self.api_base.starts_with("https://") {
+            "HTTPS (SSE)"
+        } else {
+            "HTTP (SSE)"
+        };
+        crate::logging::info(&format!("OpenRouter transport: {}", transport_type));
 
         let (tx, rx) = mpsc::channel::<Result<StreamEvent>>(100);
         let client = self.client.clone();
@@ -987,6 +1000,8 @@ impl Provider for OpenRouterProvider {
             supports_model_catalog: self.supports_model_catalog,
             profile_id: self.profile_id.clone(),
             max_tokens: self.max_tokens,
+            temperature: self.temperature,
+            repetition_penalty: self.repetition_penalty,
             static_models: self.static_models.clone(),
             static_context_limits: self.static_context_limits.clone(),
             send_openrouter_headers: self.send_openrouter_headers,
